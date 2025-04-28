@@ -16,3 +16,4 @@ steps:
 
 images:
   - 'europe-west4-docker.pkg.dev/driven-stage-457910-k8/my-docker-repo/my-node-server:latest'
+logsBucket: gs://build-logging-bucket2/
