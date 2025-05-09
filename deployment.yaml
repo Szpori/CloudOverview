@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-node-server-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-node-server
+  template:
+    metadata:
+      labels:
+        app: my-node-server
+    spec:
+      containers:
+      - name: my-node-server
+        image: europe-west4-docker.pkg.dev/driven-stage-457910-k8/my-docker-repo/my-node-server:latest
+        ports:
+        - containerPort: 8080
+        env:
+          - name: DB_HOST
+            value: "127.0.0.1" # This will point to the Cloud SQL Proxy
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: DB_USER
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: DB_PASSWORD
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: DB_NAME
+
+      - name: cloud-sql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.33.1
+        command:
+          - "/cloud_sql_proxy"
+          - "-instances=driven-stage-457910-k8:europe-west4:my-sql-instance=tcp:5432"
+        securityContext:
+          runAsUser: 2
+          allowPrivilegeEscalation: false
