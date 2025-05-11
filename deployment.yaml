@@ -16,10 +16,10 @@ spec:
       - name: my-node-server
         image: europe-west4-docker.pkg.dev/driven-stage-457910-k8/my-docker-repo/my-node-server:latest
         ports:
-        - containerPort: 8080
+          - containerPort: 8080
         env:
           - name: DB_HOST
-            value: "127.0.0.1"
+            value: "127.0.0.1"  # This remains as localhost since Cloud SQL Proxy listens on 127.0.0.1
           - name: DB_PORT
             value: "5432"
           - name: DB_USER
@@ -37,22 +37,28 @@ spec:
               secretKeyRef:
                 name: db-secret
                 key: DB_NAME
+          # Add the instance connection name
+          - name: INSTANCE_CONNECTION_NAME
+            value: "driven-stage-457910-k8:europe-west4:my-sql-instance"  # Correct format for Cloud SQL connection
 
       - name: cloud-sql-proxy
-        image: gcr.io/cloudsql-docker/gce-proxy:1.33.1
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:latest
         command:
-          - "/cloud_sql_proxy"
-          - "-instances=driven-stage-457910-k8:europe-west4:my-sql-instance=tcp:5432"
-          - "-credential_file=/secrets/key.json"
+          - "/cloud-sql-proxy"
+          - "--quiet"
+          - "--private-ip"  # Keep this if your instance is using a private IP
+          - "driven-stage-457910-k8:europe-west4:my-sql-instance"  # Corrected format (no =tcp:5432)
+        ports:
+          - containerPort: 5432
         env:
           - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: "/secrets/service-account-key.json"
+            value: "/secrets/cloud-sql-key.json"
         volumeMounts:
-          - name: cloud-sql-key-volume
+          - name: cloud-sql-key
             mountPath: /secrets
             readOnly: true
 
       volumes:
-      - name: cloud-sql-key-volume
-        secret:
-          secretName: cloud-sql-key
+        - name: cloud-sql-key
+          secret:
+            secretName: cloud-sql-key
