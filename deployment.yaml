@@ -19,7 +19,7 @@ spec:
         - containerPort: 8080
         env:
           - name: DB_HOST
-            value: "127.0.0.1" # This will point to the Cloud SQL Proxy
+            value: "127.0.0.1"
           - name: DB_PORT
             value: "5432"
           - name: DB_USER
@@ -43,6 +43,16 @@ spec:
         command:
           - "/cloud_sql_proxy"
           - "-instances=driven-stage-457910-k8:europe-west4:my-sql-instance=tcp:5432"
-        securityContext:
-          runAsUser: 2
-          allowPrivilegeEscalation: false
+          - "-credential_file=/secrets/key.json"
+        env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: "/secrets/service-account-key.json"
+        volumeMounts:
+          - name: cloud-sql-key-volume
+            mountPath: /secrets
+            readOnly: true
+
+      volumes:
+      - name: cloud-sql-key-volume
+        secret:
+          secretName: cloud-sql-key
