@@ -5,11 +5,11 @@ const { Client } = require('pg');
 const PORT = process.env.PORT || 8080;
 
 const client = new Client({
-  host: '127.0.0.1',
-  port: 5432,
-  user: 'postgres',
-  password: 'myrootpassword',
-  database: 'my-database',
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
 
 client.connect()
@@ -23,6 +23,28 @@ client.query(`
     name TEXT NOT NULL
   );
 `).catch(err => console.error('Error creating table:', err.stack));
+
+const net = require('net');
+
+const testConnection = () => {
+  const socket = new net.Socket();
+  socket.setTimeout(3000);
+
+  socket.connect(process.env.DB_PORT, process.env.DB_HOST, () => {
+    console.log(`Successfully connected to ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+    socket.destroy();
+  });
+
+  socket.on('error', (err) => {
+    console.error(`Error connecting to ${process.env.DB_HOST}:${process.env.DB_PORT} - ${err.message}`);
+  });
+
+  socket.on('timeout', () => {
+    console.error(`Connection to ${process.env.DB_HOST}:${process.env.DB_PORT} timed out`);
+  });
+};
+
+testConnection();
 
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);

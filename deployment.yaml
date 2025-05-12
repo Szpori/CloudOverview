@@ -19,7 +19,7 @@ spec:
           - containerPort: 8080
         env:
           - name: DB_HOST
-            value: "127.0.0.1"  # This remains as localhost since Cloud SQL Proxy listens on 127.0.0.1
+            value: cloud-sql-proxy
           - name: DB_PORT
             value: "5432"
           - name: DB_USER
@@ -47,6 +47,8 @@ spec:
           - "/cloud-sql-proxy"
           - "--quiet"
           - "--private-ip"  # Keep this if your instance is using a private IP
+          - "--address=0.0.0.0"
+          - "--port=5432"
           - "driven-stage-457910-k8:europe-west4:my-sql-instance"  # Corrected format (no =tcp:5432)
         ports:
           - containerPort: 5432
