@@ -1,7 +1,6 @@
 const http = require('http');
 const url = require('url');
 const { Client } = require('pg');
-require('dotenv').config();
 
 const PORT = process.env.PORT || 8080;
 
@@ -17,16 +16,38 @@ client.connect()
   .then(() => console.log('Connected to DB'))
   .catch(err => console.error('Connection error', err.stack));
 
+// Create quotes table if not exists
 client.query(`
   CREATE TABLE IF NOT EXISTS quotes (
     id SERIAL PRIMARY KEY,
     quote TEXT NOT NULL,
     author TEXT NOT NULL,
     year INT,
-    category TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    category TEXT
   );
 `).catch(err => console.error('Error creating table:', err.stack));
+
+const net = require('net');
+
+const testConnection = () => {
+  const socket = new net.Socket();
+  socket.setTimeout(3000);
+
+  socket.connect(process.env.DB_PORT, process.env.DB_HOST, () => {
+    console.log(`Successfully connected to ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+    socket.destroy();
+  });
+
+  socket.on('error', (err) => {
+    console.error(`Error connecting to ${process.env.DB_HOST}:${process.env.DB_PORT} - ${err.message}`);
+  });
+
+  socket.on('timeout', () => {
+    console.error(`Connection to ${process.env.DB_HOST}:${process.env.DB_PORT} timed out`);
+  });
+};
+
+testConnection();
 
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -40,6 +61,7 @@ const server = http.createServer(async (req, res) => {
   req.on('end', async () => {
     res.setHeader('Content-Type', 'application/json');
 
+    // GET /quotes - Get all quotes
     if (req.method === 'GET' && pathname === '/quotes') {
       try {
         const result = await client.query('SELECT * FROM quotes');
@@ -50,9 +72,11 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // POST /quotes - Add a new quote
     else if (req.method === 'POST' && pathname === '/quotes') {
       try {
         const { quote, author, year, category } = JSON.parse(body);
+
         if (!quote || !author) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: "Quote and author are required" }));
@@ -61,7 +85,7 @@ const server = http.createServer(async (req, res) => {
 
         const result = await client.query(
           'INSERT INTO quotes (quote, author, year, category) VALUES ($1, $2, $3, $4) RETURNING *',
-          [quote, author, year, category]
+          [quote, author, year || null, category || null]
         );
         res.end(JSON.stringify(result.rows[0]));
       } catch (err) {
@@ -70,6 +94,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // GET /quotes/:id - Get a specific quote
     else if (req.method === 'GET' && pathname.startsWith('/quotes/')) {
       const id = pathname.split('/')[2];
       try {
@@ -86,6 +111,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // DELETE /quotes/:id - Delete a specific quote
     else if (req.method === 'DELETE' && pathname.startsWith('/quotes/')) {
       const id = pathname.split('/')[2];
       try {
@@ -102,6 +128,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Default 404 for other routes
     else {
       res.writeHead(404);
       res.end(JSON.stringify({ error: "Not found" }));
