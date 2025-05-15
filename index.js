@@ -1,6 +1,8 @@
 const http = require('http');
 const url = require('url');
 const { Client } = require('pg');
+require('dotenv').config();
+
 
 const PORT = process.env.PORT || 8080;
 
@@ -27,22 +29,31 @@ client.query(`
 const net = require('net');
 
 const testConnection = () => {
+  const dbHost = process.env.DB_HOST;
+  const dbPort = process.env.DB_PORT;
+
+  if (!dbHost || !dbPort) {
+    console.error("DB_HOST or DB_PORT is not defined.");
+    return;
+  }
+
   const socket = new net.Socket();
   socket.setTimeout(3000);
 
-  socket.connect(process.env.DB_PORT, process.env.DB_HOST, () => {
-    console.log(`Successfully connected to ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+  socket.connect(dbPort, dbHost, () => {
+    console.log(`Successfully connected to ${dbHost}:${dbPort}`);
     socket.destroy();
   });
 
   socket.on('error', (err) => {
-    console.error(`Error connecting to ${process.env.DB_HOST}:${process.env.DB_PORT} - ${err.message}`);
+    console.error(`Error connecting to ${dbHost}:${dbPort} - ${err.message}`);
   });
 
   socket.on('timeout', () => {
-    console.error(`Connection to ${process.env.DB_HOST}:${process.env.DB_PORT} timed out`);
+    console.error(`Connection to ${dbHost}:${dbPort} timed out`);
   });
 };
+
 
 testConnection();
 
