@@ -1,8 +1,6 @@
 const http = require('http');
 const url = require('url');
 const { Client } = require('pg');
-require('dotenv').config();
-
 
 const PORT = process.env.PORT || 8080;
 
@@ -18,48 +16,20 @@ client.connect()
   .then(() => console.log('Connected to DB'))
   .catch(err => console.error('Connection error', err.stack));
 
-// Create items table if not exists
 client.query(`
-  CREATE TABLE IF NOT EXISTS items (
+  CREATE TABLE IF NOT EXISTS quotes (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL
+    quote TEXT NOT NULL,
+    author TEXT NOT NULL,
+    year INT,
+    category TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `).catch(err => console.error('Error creating table:', err.stack));
 
-const net = require('net');
-
-const testConnection = () => {
-  const dbHost = process.env.DB_HOST;
-  const dbPort = process.env.DB_PORT;
-
-  if (!dbHost || !dbPort) {
-    console.error("DB_HOST or DB_PORT is not defined.");
-    return;
-  }
-
-  const socket = new net.Socket();
-  socket.setTimeout(3000);
-
-  socket.connect(dbPort, dbHost, () => {
-    console.log(`Successfully connected to ${dbHost}:${dbPort}`);
-    socket.destroy();
-  });
-
-  socket.on('error', (err) => {
-    console.error(`Error connecting to ${dbHost}:${dbPort} - ${err.message}`);
-  });
-
-  socket.on('timeout', () => {
-    console.error(`Connection to ${dbHost}:${dbPort} timed out`);
-  });
-};
-
-
-testConnection();
-
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
-  const { pathname, query } = parsedUrl;
+  const { pathname } = parsedUrl;
   let body = '';
 
   req.on('data', chunk => {
@@ -69,9 +39,9 @@ const server = http.createServer(async (req, res) => {
   req.on('end', async () => {
     res.setHeader('Content-Type', 'application/json');
 
-    if (req.method === 'GET' && pathname === '/items') {
+    if (req.method === 'GET' && pathname === '/quotes') {
       try {
-        const result = await client.query('SELECT * FROM items');
+        const result = await client.query('SELECT * FROM quotes');
         res.end(JSON.stringify(result.rows));
       } catch (err) {
         res.writeHead(500);
@@ -79,18 +49,18 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    else if (req.method === 'POST' && pathname === '/items') {
+    else if (req.method === 'POST' && pathname === '/quotes') {
       try {
-        const { name } = JSON.parse(body);
-        if (!name) {
+        const { quote, author, year, category } = JSON.parse(body);
+        if (!quote || !author) {
           res.writeHead(400);
-          res.end(JSON.stringify({ error: "Name is required" }));
+          res.end(JSON.stringify({ error: "Quote and author are required" }));
           return;
         }
 
         const result = await client.query(
-          'INSERT INTO items (name) VALUES ($1) RETURNING *',
-          [name]
+          'INSERT INTO quotes (quote, author, year, category) VALUES ($1, $2, $3, $4) RETURNING *',
+          [quote, author, year, category]
         );
         res.end(JSON.stringify(result.rows[0]));
       } catch (err) {
@@ -99,13 +69,13 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    else if (req.method === 'GET' && pathname.startsWith('/items/')) {
+    else if (req.method === 'GET' && pathname.startsWith('/quotes/')) {
       const id = pathname.split('/')[2];
       try {
-        const result = await client.query('SELECT * FROM items WHERE id = $1', [id]);
+        const result = await client.query('SELECT * FROM quotes WHERE id = $1', [id]);
         if (result.rows.length === 0) {
           res.writeHead(404);
-          res.end(JSON.stringify({ error: "Item not found" }));
+          res.end(JSON.stringify({ error: "Quote not found" }));
         } else {
           res.end(JSON.stringify(result.rows[0]));
         }
@@ -115,15 +85,15 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    else if (req.method === 'DELETE' && pathname.startsWith('/items/')) {
+    else if (req.method === 'DELETE' && pathname.startsWith('/quotes/')) {
       const id = pathname.split('/')[2];
       try {
-        const result = await client.query('DELETE FROM items WHERE id = $1 RETURNING *', [id]);
+        const result = await client.query('DELETE FROM quotes WHERE id = $1 RETURNING *', [id]);
         if (result.rows.length === 0) {
           res.writeHead(404);
-          res.end(JSON.stringify({ error: "Item not found" }));
+          res.end(JSON.stringify({ error: "Quote not found" }));
         } else {
-          res.end(JSON.stringify({ message: `Item ${id} deleted` }));
+          res.end(JSON.stringify({ message: `Quote ${id} deleted` }));
         }
       } catch (err) {
         res.writeHead(500);
